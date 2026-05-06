@@ -1,7 +1,10 @@
 const { Pool } = require('pg');
 require('dotenv').config();
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 // Create connection pool
+
+
 // Aiven PostgreSQL usually provides a connection string. If provided, use it, else fallback to individual vars.
 const poolConfig = process.env.DATABASE_URL ? {
     connectionString: process.env.DATABASE_URL,
