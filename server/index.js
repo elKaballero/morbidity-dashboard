@@ -145,11 +145,78 @@ app.get('/api/daily-logs', async (req, res) => {
     }
 });
 
-// Standard listen for standard hosts (Render, Railway, VPS, etc.)
-// Vercel/Serverless will ignore this and use the exported 'app'
+// 5. Admin: Manage Users (Branches)
+app.get('/api/users', async (req, res) => {
+    try {
+        const { rows } = await pool.query('SELECT id, username, role, branch_name as "branchName", password_hash FROM users ORDER BY role DESC, username ASC');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ success: false });
+    }
+});
+
+app.post('/api/users', async (req, res) => {
+    const { id, username, password_hash, role, branchName } = req.body;
+    try {
+        if (id) {
+            // Update
+            await pool.query(
+                'UPDATE users SET username = $1, password_hash = $2, role = $3, branch_name = $4 WHERE id = $5',
+                [username, password_hash, role, branchName, id]
+            );
+        } else {
+            // Create
+            await pool.query(
+                'INSERT INTO users (username, password_hash, role, branch_name) VALUES ($1, $2, $3, $4)',
+                [username, password_hash, role, branchName]
+            );
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error('User Save Error:', error);
+        res.status(500).json({ success: false });
+    }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false });
+    }
+});
+
+// 6. Admin: Manage Config (Dynamic Items)
+app.get('/api/config', async (req, res) => {
+    try {
+        const { rows } = await pool.query('SELECT * FROM app_config');
+        const config = {};
+        rows.forEach(r => config[r.key] = r.value);
+        res.json(config);
+    } catch (error) {
+        res.status(500).json({ success: false });
+    }
+});
+
+app.post('/api/config', async (req, res) => {
+    const { key, value } = req.body;
+    try {
+        await pool.query(
+            'INSERT INTO app_config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+            [key, JSON.stringify(value)]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Config Save Error:', error);
+        res.status(500).json({ success: false });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Exo Morb Server running on port ${PORT}`);
 });
+
 
 
 module.exports = app;
