@@ -41,26 +41,37 @@ app.post('/api/auth/login', async (req, res) => {
 // 2. Fetch Reports
 app.get('/api/reports', async (req, res) => {
     try {
-        const { rows } = await pool.query('SELECT * FROM reports ORDER BY created_at ASC');
-        // Parse JSON columns back to objects
+        const { rows } = await pool.query('SELECT * FROM reports ORDER BY month DESC, created_at DESC');
+        
+        // Helper to handle both stringified and object-type JSON from PG
+        const parseJSON = (val) => {
+            if (typeof val === 'string') {
+                try { return JSON.parse(val); } catch (e) { return {}; }
+            }
+            return val || {};
+        };
+
         const formattedReports = rows.map(r => ({
             ...r,
-            workers: typeof r.workers === 'string' ? JSON.parse(r.workers) : r.workers,
-            preventive: typeof r.preventive === 'string' ? JSON.parse(r.preventive) : r.preventive,
-            curative: typeof r.curative === 'string' ? JSON.parse(r.curative) : r.curative,
-            referrals: typeof r.referrals === 'string' ? JSON.parse(r.referrals) : r.referrals,
-            activities: typeof r.activities === 'string' ? JSON.parse(r.activities) : r.activities,
-            absences: typeof r.absences === 'string' ? JSON.parse(r.absences) : r.absences,
-            demographics: typeof r.demographics === 'string' ? JSON.parse(r.demographics) : r.demographics,
-            inventory: typeof r.inventory === 'string' ? JSON.parse(r.inventory) : r.inventory,
-            topDiagnoses: typeof r.topDiagnoses === 'string' ? JSON.parse(r.topDiagnoses) : r.topDiagnoses
+            workDays: parseInt(r.workDays, 10) || 0,
+            workHours: parseInt(r.workHours, 10) || 0,
+            workers: parseJSON(r.workers),
+            preventive: parseJSON(r.preventive),
+            curative: parseJSON(r.curative),
+            referrals: parseJSON(r.referrals),
+            activities: parseJSON(r.activities),
+            absences: parseJSON(r.absences),
+            demographics: parseJSON(r.demographics),
+            inventory: parseJSON(r.inventory),
+            topDiagnoses: parseJSON(r.topDiagnoses)
         }));
         res.json(formattedReports);
     } catch (error) {
         console.error('Fetch Reports Error:', error);
-        res.status(500).json({ success: false, message: 'Server error fetching reports' });
+        res.status(500).json({ success: false, message: 'Server error fetching reports', detail: error.message });
     }
 });
+
 
 // 3. Create Report
 app.post('/api/reports', async (req, res) => {
